@@ -25,6 +25,7 @@ struct cmd_line_t
     string      disk_type;
     uint64_t    disk_size;
     bool        help;
+    bool        append_footer;
 };
 
 #endif //CMDLINE_H

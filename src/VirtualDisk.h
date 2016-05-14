@@ -8,6 +8,7 @@
 
 #include "vhd.h"
 #include "CmdLine.h"
+#include "DateTime.h"
 
 #include <fstream>
 
@@ -28,6 +29,10 @@ public:
 private:
 
     bool getInfo(string path, string &msg);
+    bool convert(string path,
+                 string dest_path,
+                 bool append_footer,
+                 string &msg);
 
     void setLitteEndian(vhd_footer_t* vhd_footer);
 

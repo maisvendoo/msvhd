@@ -7,6 +7,13 @@
 #define VHD_H
 
 #include <stdint.h>
+#include <string>
+
+using namespace std;
+
+const string VHD_COOKIE = "conectix";
+const string VHD_CREATOR_APP = "win ";
+const string VHD_CREATOR_HOST_OS = "Wi2k";
 
 #pragma pack(push, 1)
 
@@ -24,7 +31,7 @@ struct vhd_disk_geometry_t
 //
 //-----------------------------------------------------------------------------
 
-struct uuid_t
+struct vhd_uuid_t
 {
     uint32_t    part1;
     uint16_t    part2;
@@ -51,7 +58,7 @@ struct vhd_footer_t
     vhd_disk_geometry_t disk_geometry;
     uint32_t            disk_type;
     uint32_t            checksum;
-    uuid_t              unique_id;
+    vhd_uuid_t              unique_id;
     uint8_t             saved_state;
     uint8_t             reserved[427];
 };

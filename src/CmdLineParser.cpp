@@ -11,7 +11,7 @@
 #include "convert.h"
 #include "msg.h"
 
-static const char *optString = "t:i:o:h?";
+static const char *optString = "t:i:o:ah?";
 
 static const struct option longOpts[] = {
         {"help", no_argument, NULL, 'h'},
@@ -37,7 +37,13 @@ bool CmdLineParser::parse(int argc,
                           cmd_line_t &cmd_line,
                           string &msg)
 {
-    cmd_line.command = argv[1];
+    if (argc == 1)
+        return true;
+
+    if (argv[1][0] != '-')
+        cmd_line.command = argv[1];
+    else
+        cmd_line.command = "";
 
     int longIndex = 0;
     int opt = getopt_long(argc, argv, optString, longOpts, &longIndex);
@@ -63,6 +69,13 @@ bool CmdLineParser::parse(int argc,
             case 'o':
             {
                 cmd_line.output_file = optarg;
+
+                break;
+            }
+
+            case 'a':
+            {
+                cmd_line.append_footer = true;
 
                 break;
             }
