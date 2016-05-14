@@ -37,6 +37,8 @@ private:
     void setLitteEndian(vhd_footer_t* vhd_footer);
 
     void printVhdFooterInfo(vhd_footer_t *vhd_footer);
+
+    void getDiskGeometry(uint64_t size, vhd_disk_geometry_t &disk_geometry);
 };
 
 #endif //VIRTUALDISK_H

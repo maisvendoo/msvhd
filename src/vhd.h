@@ -58,7 +58,7 @@ struct vhd_footer_t
     vhd_disk_geometry_t disk_geometry;
     uint32_t            disk_type;
     uint32_t            checksum;
-    vhd_uuid_t              unique_id;
+    vhd_uuid_t          unique_id;
     uint8_t             saved_state;
     uint8_t             reserved[427];
 };

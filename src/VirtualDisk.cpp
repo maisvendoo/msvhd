@@ -211,8 +211,21 @@ bool VirtualDisk::convert(string src_path,
     uuid_t uuid;
     uuid_generate(uuid);
 
+    memcpy(&vhd_footer->unique_id, &uuid, sizeof(uuid));
+
     delete vhd_footer;
 
     return true;
 }
+
+//-----------------------------------------------------------------------------
+//
+//-----------------------------------------------------------------------------
+void VirtualDisk::getDiskGeometry(uint64_t size,
+                                  vhd_disk_geometry_t &disk_geometry)
+{
+
+}
+
+
 
