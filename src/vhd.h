@@ -15,6 +15,11 @@ const string VHD_COOKIE = "conectix";
 const string VHD_CREATOR_APP = "win ";
 const string VHD_CREATOR_HOST_OS = "Wi2k";
 
+const uint32_t VHD_SECTOR_SIZE = 512;
+const uint8_t VHD_EMPTY_SECTOR[VHD_SECTOR_SIZE] = {0};
+
+const string VHD_EXP = ".vhd";
+
 #pragma pack(push, 1)
 
 //-----------------------------------------------------------------------------

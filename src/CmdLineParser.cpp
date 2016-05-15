@@ -18,6 +18,7 @@ static const struct option longOpts[] = {
         {"type", required_argument, NULL, 't'},
         {"input-file", required_argument, NULL, 'i'},
         {"output-file", required_argument, NULL, 'o'},
+        {"append-footer", no_argument, NULL, 'a'},
         {NULL, no_argument, NULL, 0}
 };
 

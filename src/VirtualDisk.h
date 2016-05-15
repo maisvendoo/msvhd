@@ -34,11 +34,14 @@ private:
                  bool append_footer,
                  string &msg);
 
-    void setLitteEndian(vhd_footer_t* vhd_footer);
+    void setLitteEndian(vhd_footer_t *vhd_footer);
+    void setBigEndian(vhd_footer_t *vhd_footer);
 
     void printVhdFooterInfo(vhd_footer_t *vhd_footer);
 
     void getDiskGeometry(uint64_t size, vhd_disk_geometry_t &disk_geometry);
+
+    void getChecksum(vhd_footer_t *vhd_footer);
 };
 
 #endif //VIRTUALDISK_H

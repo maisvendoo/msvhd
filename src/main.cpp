@@ -8,6 +8,11 @@ int main(int argc, char* argv[])
 	CmdLineParser cmd;
 	cmd_line_t cmd_line;
 
+	cmd_line.append_footer = false;
+	cmd_line.help = false;
+	cmd_line.input_file = "";
+	cmd_line.output_file = "";
+
 	string msg = "";
 
 	// Parse cmd line

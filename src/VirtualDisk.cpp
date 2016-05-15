@@ -4,7 +4,13 @@
 #include "VirtualDisk.h"
 
 #include <string.h>
-#include <uuid/uuid.h>
+#include <boost/uuid/uuid.hpp>
+#include <boost/uuid/uuid_generators.hpp>
+#include <boost/filesystem/operations.hpp>
+#include <boost/filesystem/fstream.hpp>
+
+using namespace boost::filesystem;
+using namespace boost::uuids;
 
 //-----------------------------------------------------------------------------
 //
@@ -66,7 +72,7 @@ bool VirtualDisk::process(cmd_line_t cmd_line, string &msg)
 //-----------------------------------------------------------------------------
 bool VirtualDisk::getInfo(string path, string &msg)
 {
-    ifstream disk(path.c_str(), ifstream::binary);
+    std::ifstream disk(path.c_str(), std::ifstream::binary);
 
     if (!disk.is_open())
     {
@@ -124,7 +130,7 @@ void VirtualDisk::setLitteEndian(vhd_footer_t *vhd_footer)
 void VirtualDisk::printVhdFooterInfo(vhd_footer_t *vhd_footer)
 {
     printf("Virtual disk (VHD) info:\n\n");
-    printf("Cookie:\t\t%s\n", vhd_footer->cookie);
+    printf("Cookie:\t\t\t%s\n", vhd_footer->cookie);
     printf("Features:\t\t0x%x\n", vhd_footer->features);
     printf("File format version:\t0x%x\n", vhd_footer->file_format_version);
 
@@ -147,6 +153,8 @@ void VirtualDisk::printVhdFooterInfo(vhd_footer_t *vhd_footer)
            vhd_footer->disk_geometry.cylinder,
            vhd_footer->disk_geometry.heads,
            vhd_footer->disk_geometry.sectors_per_track);
+
+    printf("Disk type:\t\t0x%x\n", vhd_footer->disk_type);
 
     printf("Checksum:\t\t0x%x\n", vhd_footer->checksum);
 
@@ -175,7 +183,7 @@ bool VirtualDisk::convert(string src_path,
                           string &msg)
 {
     // Get source size
-    ifstream src(src_path.c_str(), ifstream::binary);
+    std::ifstream src(src_path.c_str(), std::ifstream::binary);
 
     if (!src.is_open())
     {
@@ -185,6 +193,8 @@ bool VirtualDisk::convert(string src_path,
 
     src.seekg(0, src.end);
     uint64_t size = src.tellg();
+
+    src.close();
 
     // Create new footer
     vhd_footer_t* vhd_footer = new vhd_footer_t;
@@ -208,10 +218,54 @@ bool VirtualDisk::convert(string src_path,
     vhd_footer->current_size = size;
 
     // UUID generation
-    uuid_t uuid;
-    uuid_generate(uuid);
+    //uuid_t uuid;
+    //uuid_generate(uuid);
 
-    memcpy(&vhd_footer->unique_id, &uuid, sizeof(uuid));
+    uuid id;
+    random_generator gen;
+    id = gen();
+
+    memcpy(&vhd_footer->unique_id, &id.data, sizeof(uuid));
+
+    // Disk geometry calculation
+    getDiskGeometry(size, vhd_footer->disk_geometry);
+
+    vhd_footer->disk_type = 0x2;
+    vhd_footer->saved_state = 0;
+
+    // Checksum calculation
+    getChecksum(vhd_footer);
+
+    setBigEndian(vhd_footer);
+
+    // Create or modify disk image
+    if (append_footer)
+    {
+        std::fstream disk(src_path, ios::binary | ios::app);
+        disk.write((char*) vhd_footer, sizeof(vhd_footer_t));
+        disk.close();
+
+        size_t pos = src_path.rfind('.');
+        string tmp = "";
+
+        if (pos < 0)
+            tmp = src_path;
+        else
+            tmp = src_path.substr(0, pos);
+
+        rename(src_path.c_str(), (tmp + VHD_EXP).c_str());
+    }
+    else
+    {
+        path src_disk = path(src_path.c_str());
+        path dest_disk = path(dest_path.c_str());
+
+        copy_file(src_disk, dest_disk);
+
+        std::fstream disk(dest_path, ios::binary | ios::app);
+        disk.write((char*) vhd_footer, sizeof(vhd_footer_t));
+        disk.close();
+    }
 
     delete vhd_footer;
 
@@ -224,8 +278,87 @@ bool VirtualDisk::convert(string src_path,
 void VirtualDisk::getDiskGeometry(uint64_t size,
                                   vhd_disk_geometry_t &disk_geometry)
 {
+    uint64_t total_sectors = size / VHD_SECTOR_SIZE;
+    uint64_t cyl_times_heads = 0;
 
+    if (total_sectors > 65535 * 16 * 255)
+    {
+        total_sectors = 65535 * 16 * 255;
+    }
+
+    if (total_sectors >= 65535 * 16 * 63)
+    {
+        disk_geometry.sectors_per_track = 255;
+        disk_geometry.heads = 16;
+        cyl_times_heads = total_sectors / disk_geometry.sectors_per_track;
+    }
+    else
+    {
+        disk_geometry.sectors_per_track = 17;
+        cyl_times_heads = total_sectors / disk_geometry.sectors_per_track;
+
+        disk_geometry.heads = (cyl_times_heads + 1023) / 1024;
+
+        if (disk_geometry.heads < 4)
+        {
+            disk_geometry.heads = 4;
+        }
+
+        if ( (cyl_times_heads >= (disk_geometry.heads * 1024)) || (disk_geometry.heads > 16) )
+        {
+            disk_geometry.sectors_per_track = 31;
+            disk_geometry.heads = 16;
+            cyl_times_heads = total_sectors / disk_geometry.sectors_per_track;
+        }
+
+        if (cyl_times_heads >= (disk_geometry.heads * 1024))
+        {
+            disk_geometry.sectors_per_track = 63;
+            disk_geometry.heads = 16;
+            cyl_times_heads = total_sectors / disk_geometry.sectors_per_track;
+        }
+    }
+
+    disk_geometry.cylinder = cyl_times_heads / disk_geometry.heads;
 }
+
+//-----------------------------------------------------------------------------
+//
+//-----------------------------------------------------------------------------
+void VirtualDisk::getChecksum(vhd_footer_t *vhd_footer)
+{
+    uint32_t checksum = 0;
+
+    for (uint16_t i = 0; i < sizeof(vhd_footer_t); i++)
+    {
+        checksum += ((uint8_t*) vhd_footer)[i];
+    }
+
+    vhd_footer->checksum = ~checksum;
+}
+
+//-----------------------------------------------------------------------------
+//
+//-----------------------------------------------------------------------------
+void VirtualDisk::setBigEndian(vhd_footer_t *vhd_footer)
+{
+    vhd_footer->features = htobe32(vhd_footer->features);
+    vhd_footer->file_format_version = htobe32(vhd_footer->file_format_version);
+    vhd_footer->data_offset = htobe64(vhd_footer->data_offset);
+    vhd_footer->time_stamp = htobe32(vhd_footer->time_stamp);
+    vhd_footer->creator_version = htobe32(vhd_footer->creator_version);
+    vhd_footer->original_size = htobe64(vhd_footer->original_size);
+    vhd_footer->current_size = htobe64(vhd_footer->current_size);
+    vhd_footer->disk_geometry.cylinder = htobe16(vhd_footer->disk_geometry.cylinder);
+    vhd_footer->disk_type = htobe32(vhd_footer->disk_type);
+    vhd_footer->checksum = htobe32(vhd_footer->checksum);
+
+    vhd_footer->unique_id.part4 = htobe16(vhd_footer->unique_id.part4);
+}
+
+
+
+
 
 
 
